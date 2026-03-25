@@ -15,14 +15,13 @@
 ## 环境要求
 
 - Python 3.10+（推荐 3.11+）
-- 网络访问（NCBI、LLM 服务）
 
 ## 快速开始
 
-### 1. 获取代码并创建虚拟环境
+### 1. 克隆仓库并创建虚拟环境
 
 ```bash
-cd 文献检索
+cd PubMed-literature-search-main
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 ```
@@ -32,45 +31,34 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 使用 pip：
 
 ```bash
-pip install -U pip
-pip install -r requirements.txt
-```
-
-或使用 uv（若已安装）：
-
-```bash
+pip install uv
 uv pip install -r requirements.txt
 ```
 
-### 3. 配置环境变量
+### 3.运行
 
-复制示例并编辑：
+使用脚本运行
 
 ```bash
-cp .env.example .env
+chmod +x run.sh
+./run.sh
 ```
+
+在第一次运行时，需要配置环境变量
 
 **必填**
 
 | 变量 | 说明 |
 |------|------|
 | `ENTREZ_EMAIL` | NCBI E-utilities 政策要求的**联系邮箱**（用于标识调用方，不是登录密码） |
-| `OPENAI_API_KEY` | 所选 **OpenAI 兼容服务** 的密钥（Bearer），变量名沿用 SDK 惯例 |
-
-**常用选填**
-
-| 变量 | 说明 |
-|------|------|
 | `NCBI_API_KEY` | NCBI 账户申请的 key，请求会带 `api_key=…`，提高速率限制 |
 | `OPENAI_BASE_URL` | 兼容服务根地址，一般为 `https://…/v1`（如自建网关、DeepSeek、官方 OpenAI 等） |
+| `OPENAI_API_KEY` | 所选 **OpenAI 兼容服务** 的密钥 |
 | `OPENAI_MODEL` | 模型名，由服务商定义 |
 | `CHINESE_FONT_PATH` | 中文字体 `.ttf` / `.ttc` 路径；不填则尝试常见系统路径 |
 
-说明：`OPENAI_BASE_URL` + `OPENAI_API_KEY` 对接的是 **HTTP API 形态与 OpenAI 一致** 的服务，**不强制使用 ChatGPT**。
 
-### 4. 运行
-
-**命令行**
+使用命令行运行
 
 ```bash
 python -m pubmed_reporter --help
@@ -78,18 +66,11 @@ python -m pubmed_reporter --help
 # 综述（80 篇上限，输出 PDF）
 python -m pubmed_reporter -n 80 -o report.pdf review "CRISPR therapy" -a
 
-# 近 5 年趋势
+# 近 5 年趋势分析
 python -m pubmed_reporter -n 100 -o trend.pdf trend "mRNA vaccine" -y 5
 
-# 作者
+# 针对作者分析
 python -m pubmed_reporter -n 60 -o author.pdf author "Smith JA"
-```
-
-**交互脚本**（检查配置、选模式、记日志）
-
-```bash
-chmod +x run.sh
-./run.sh
 ```
 
 日志默认写入 `logs/run_*.log`。
@@ -109,7 +90,7 @@ chmod +x run.sh
 │   ├── llm_client.py       # OpenAI 兼容客户端
 │   ├── markdown_render.py  # Markdown → HTML（PDF 用）
 │   ├── pdf_report.py       # PDF 生成
-│   ├── modes.py            # 三种业务模式
+│   ├── modes.py            # 三种分析模式
 │   └── ...
 └── logs/                   # 运行日志（可选）
 ```
