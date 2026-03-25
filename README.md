@@ -48,7 +48,7 @@ cp .env.example .env
 # 编辑 .env
 ```
 
-- **方法 2**：运行 `./run.sh`（见下节），脚本会引导填写并写回 `.env`。
+- **方法 2**：运行交互脚本（见下节「启动方式」），脚本会引导填写并写回 `.env`。
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
@@ -65,7 +65,7 @@ cp .env.example .env
 
 #### 方式 A：交互脚本（推荐）
 
-在项目根目录执行（会分段提示配置、模式、参数，并把**标准输出与标准错误**一并写入 `logs/run_*.log`）：
+**Linux / macOS**：在项目根目录执行（会分段提示配置、模式、参数，并把**标准输出与标准错误**一并写入 `logs/run_*.log`）：
 
 ```bash
 chmod +x run.sh
@@ -73,6 +73,14 @@ chmod +x run.sh
 ```
 
 也可使用：`bash run.sh`。
+
+**Windows**：在项目根目录双击或在「命令提示符 / PowerShell」中执行：
+
+```bat
+run.bat
+```
+
+行为与 `run.sh` 一致：引导填写 `.env`、选择模式与参数、将 `python -m pubmed_reporter` 的输出同时显示在终端并追加到 `logs\run_*.log`（由 `scripts\tee_run.py` 实现）。需已创建虚拟环境 `.venv` 并已安装依赖；日志文件名中的时间戳依赖系统自带的 **PowerShell**（`Get-Date`）。
 
 #### 方式 B：命令行（`python -m pubmed_reporter`）
 
@@ -115,8 +123,13 @@ python -m pubmed_reporter -n 60 -o author.pdf author "展示用标签" -q '"Zhan
 ```
 PubMed-literature-search/
 ├── main.py                    # 入口：转发到 pubmed_reporter.cli
-├── run.sh                     # 交互启动：环境检查、模式选择、tee 日志
+├── run.sh                     # 交互启动（Linux/macOS）：环境检查、模式选择、tee 日志
+├── run.bat                    # 交互启动（Windows）：同上，依赖 scripts\tee_run.py
 ├── requirements.txt
+├── scripts/
+│   ├── env_write.py           # 供 run.bat 更新 .env 中的键值
+│   ├── read_env.py            # 供 run.bat 读取 .env 供判断是否需要提示
+│   └── tee_run.py             # 子进程输出同时打印并写入 logs\run_*.log
 ├── .env.example
 ├── pubmed_reporter/
 │   ├── __main__.py            # python -m pubmed_reporter
