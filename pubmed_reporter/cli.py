@@ -9,6 +9,7 @@ import traceback
 from pathlib import Path
 
 from pubmed_reporter.config import load_settings
+from pubmed_reporter.flow_log import flow_info
 from pubmed_reporter import modes
 
 
@@ -38,13 +39,18 @@ def main() -> int:
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_rev = sub.add_parser("review", help="综述模式：围绕关键词检索并生成简报")
-    p_rev.add_argument("keyword", help="主题关键词或核心检索词")
+    p_rev = sub.add_parser("review", help="综述模式：围绕检索意图检索并生成简报")
+    p_rev.add_argument(
+        "keyword",
+        help="检索意图的自然语言描述（中/英均可），将经 LLM 转为 PubMed 检索式",
+    )
     p_rev.add_argument(
         "-q",
-        "--query",
+        "--raw-query",
+        dest="raw_query",
         default=None,
-        help="完整 PubMed 检索式；若指定则忽略 --authoritative 与默认关键词包装",
+        metavar="QUERY",
+        help="跳过 LLM 翻译，直接使用此 PubMed 检索式",
     )
     p_rev.add_argument(
         "-a",
@@ -54,7 +60,18 @@ def main() -> int:
     )
 
     p_tr = sub.add_parser("trend", help="研究趋势：近若干年文献按时序分析热点变化")
-    p_tr.add_argument("keyword", help="主题关键词")
+    p_tr.add_argument(
+        "keyword",
+        help="检索意图的自然语言描述（中/英均可），将经 LLM 转为 PubMed 检索式",
+    )
+    p_tr.add_argument(
+        "-q",
+        "--raw-query",
+        dest="raw_query",
+        default=None,
+        metavar="QUERY",
+        help="跳过 LLM 翻译，直接使用此 PubMed 检索式",
+    )
     p_tr.add_argument(
         "-y",
         "--years",
@@ -64,7 +81,18 @@ def main() -> int:
     )
 
     p_au = sub.add_parser("author", help="作者分析：按作者检索并归纳研究方向")
-    p_au.add_argument("name", help='作者姓名（如 "Zhang Y" 或 "Smith JA"）')
+    p_au.add_argument(
+        "name",
+        help="作者或检索意图的自然语言描述（中/英均可），将经 LLM 转为 PubMed 检索式",
+    )
+    p_au.add_argument(
+        "-q",
+        "--raw-query",
+        dest="raw_query",
+        default=None,
+        metavar="QUERY",
+        help="跳过 LLM 翻译，直接使用此 PubMed 检索式",
+    )
 
     args = parser.parse_args()
     settings = load_settings()
@@ -78,12 +106,16 @@ def main() -> int:
 
     modes.warn_if_no_cjk_font(settings)
 
+    flow_info(
+        f"CLI 子命令: {args.command}  retmax={args.retmax}  输出 PDF: {args.output}"
+    )
+
     try:
         if args.command == "review":
             path = modes.run_review(
                 settings,
                 args.keyword,
-                query=args.query,
+                query=args.raw_query,
                 authoritative_journals=args.authoritative,
                 retmax=args.retmax,
                 output_pdf=args.output,
@@ -92,6 +124,7 @@ def main() -> int:
             path = modes.run_trend(
                 settings,
                 args.keyword,
+                raw_query=args.raw_query,
                 years=args.years,
                 retmax=args.retmax,
                 output_pdf=args.output,
@@ -100,6 +133,7 @@ def main() -> int:
             path = modes.run_author(
                 settings,
                 args.name,
+                raw_query=args.raw_query,
                 retmax=args.retmax,
                 output_pdf=args.output,
             )

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 文献检索项目快速启动：检查 API 配置 → 选择模式 → 输入检索式 → 跟踪执行过程
+# PubMed 文献检索：配置 API → 选择模式 → 执行流水线（全程日志可追溯）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +18,12 @@ EXAMPLE="${SCRIPT_DIR}/.env.example"
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
 log() { echo "[$(ts)] $*"; }
+
+# 分段标题（便于在终端与日志中扫读）
+section() {
+  echo ""
+  echo "========== [$(ts)] $* =========="
+}
 
 # 安全写入 .env 中一行 KEY（若已存在则先删除旧行）
 write_env_kv() {
@@ -86,7 +92,8 @@ if [[ "${OPENAI_API_KEY:-}" == "sk-..." ]]; then
   OPENAI_API_KEY=""
 fi
 
-log "检查 API 与联系信息配置..."
+section "环境与 API 配置"
+log "检查 NCBI 联系信息与 LLM 配置..."
 
 # 必填：NCBI 政策要求的联系邮箱（不是 eutils 的 api_key）
 prompt_if_empty ENTREZ_EMAIL "请输入 NCBI E-utilities 联系邮箱 ENTREZ_EMAIL（政策要求，非 API Key）: " 0
@@ -146,9 +153,8 @@ fi
 log "配置就绪。"
 
 # --- 模式选择 ---
-echo ""
-echo "请选择运行模式："
-echo "  1) 综述模式 (review) — 围绕主题/检索式生成简报"
+section "选择运行模式"
+echo "  1) 综述模式 (review) — 围绕主题生成简报"
 echo "  2) 研究趋势 (trend) — 近年文献按时序分析热点"
 echo "  3) 作者分析 (author) — 按作者归纳研究方向"
 echo ""
@@ -165,6 +171,7 @@ case "$MODE_CHOICE" in
 esac
 
 # --- 检索表达式与参数 ---
+section "检索参数"
 RETMAX_DEFAULT="80"
 read -r -p "单次检索最大文献条数 retmax [默认 ${RETMAX_DEFAULT}]: " _retmax
 RETMAX="${_retmax:-$RETMAX_DEFAULT}"
@@ -179,14 +186,14 @@ case "$CMD_MODE" in
   review)
     echo ""
     echo "综述模式："
-    echo "  - 「关键词」用于报告标题与 LLM 主题说明；"
-    echo "  - 「PubMed 检索式」可选：若填写则作为实际检索式（等价于 -q）；不填则用语义关键词自动组式。"
-    read -r -p "关键词（必填）: " KEYWORD
+    echo "  - 支持使用自然语言检索，或者输入标准PubMed检索表达式。"
+    echo "  - 若在此栏填写「手工检索式」，则跳过翻译，直接使用（等价命令行 -q）。"
+    read -r -p "检索意图自然语言（必填）: " KEYWORD
     if [[ -z "${KEYWORD// /}" ]]; then
-      echo "错误：关键词不能为空。" >&2
+      echo "错误：检索意图不能为空。" >&2
       exit 1
     fi
-    read -r -p "PubMed 检索式（可选，回车跳过）: " PUB_QUERY
+    read -r -p "手工 PubMed 检索式（可选，回车则由 LLM 根据上一行生成）: " PUB_QUERY
     read -r -p "是否限定权威生物医学期刊? [y/N]: " AUTH
     ARGS+=(review "$KEYWORD")
     if [[ -n "${PUB_QUERY// /}" ]]; then
@@ -195,37 +202,55 @@ case "$CMD_MODE" in
     if [[ "$AUTH" =~ ^[yY]$ ]]; then
       ARGS+=("-a")
     fi
+    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch\n  D) LLM：生成中文文献报告（综述）\n  E) 写入 PDF'
     ;;
   trend)
     echo ""
-    echo "研究趋势：将按发表日期检索近年文献并分析。"
-    read -r -p "关键词/检索主题（必填）: " KEYWORD
+    echo "研究趋势："
+    echo "  - 支持使用自然语言检索，或者输入标准PubMed检索表达式。"
+    echo "  - 若在此栏填写「手工检索式」，则跳过翻译，直接使用（等价命令行 -q）。"
+    read -r -p "检索意图自然语言（必填）: " KEYWORD
     if [[ -z "${KEYWORD// /}" ]]; then
-      echo "错误：关键词不能为空。" >&2
+      echo "错误：检索意图不能为空。" >&2
       exit 1
     fi
+    read -r -p "手工 PubMed 检索式（可选，回车则由 LLM 生成）: " RAW_Q
     read -r -p "回溯年数 [默认 5]: " _y
     YEARS="${_y:-5}"
     ARGS+=(trend "$KEYWORD" "-y" "$YEARS")
+    if [[ -n "${RAW_Q// /}" ]]; then
+      ARGS+=("-q" "$RAW_Q")
+    fi
+    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch（含日期范围）\n  D) LLM：生成中文文献报告（研究趋势）\n  E) 写入 PDF'
     ;;
   author)
     echo ""
-    echo "作者分析：将使用 PubMed 作者字段检索。"
-    read -r -p "作者姓名（如 Zhang Y 或 Smith JA，必填）: " AUTH_NAME
+    echo "作者分析："
+    echo "  - 支持使用自然语言检索，或者输入标准PubMed检索表达式。"
+    echo "  - 若在此栏填写「手工检索式」，则跳过翻译，直接使用（等价命令行 -q）。"
+    read -r -p "作者或检索意图自然语言（必填）: " AUTH_NAME
     if [[ -z "${AUTH_NAME// /}" ]]; then
-      echo "错误：作者姓名不能为空。" >&2
+      echo "错误：输入不能为空。" >&2
       exit 1
     fi
+    read -r -p "手工 PubMed 检索式（可选，回车则由 LLM 生成）: " RAW_Q
     ARGS+=(author "$AUTH_NAME")
+    if [[ -n "${RAW_Q// /}" ]]; then
+      ARGS+=("-q" "$RAW_Q")
+    fi
+    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch\n  D) LLM：生成中文文献报告（作者画像）\n  E) 写入 PDF'
     ;;
 esac
 
 mkdir -p "${SCRIPT_DIR}/logs"
 LOG_FILE="${SCRIPT_DIR}/logs/run_$(date '+%Y%m%d_%H%M%S').log"
 
+section "即将执行的流水线）"
+echo "$PIPELINE_HINT"
+
+section "启动 Python"
 log "命令: $VENV_PY -u -m pubmed_reporter ${ARGS[*]}"
 log "日志文件: $LOG_FILE"
-log "开始执行（标准输出与错误均会显示并写入日志）..."
 echo "----------"
 
 set +e
@@ -234,10 +259,11 @@ EXIT_CODE=${PIPESTATUS[0]}
 set -e
 
 echo "----------"
+section "运行结束"
 if [[ "$EXIT_CODE" -eq 0 ]]; then
   log "任务成功结束 (exit 0)。"
 else
-  log "任务失败，退出码: $EXIT_CODE（详见日志）。"
+  log "任务失败，退出码: $EXIT_CODE（详见日志：$LOG_FILE）。"
 fi
 
 exit "$EXIT_CODE"

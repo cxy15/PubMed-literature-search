@@ -14,6 +14,7 @@ from typing import Any
 
 from Bio import Entrez, Medline
 
+from pubmed_reporter.flow_log import flow_info
 from pubmed_reporter.models import PubMedArticle, SearchResult
 
 # NCBI 建议单次 efetch 不超过约 200 条
@@ -136,6 +137,18 @@ def search_pubmed(
     if mindate or maxdate:
         esearch_params["datetype"] = "pdat"
 
+    date_hint = ""
+    if mindate or maxdate:
+        date_hint = f" 日期范围 {mindate or '…'}–{maxdate or '…'} (pdat)"
+    preview = term.replace("\n", " ").strip()
+    if len(preview) > 600:
+        preview = preview[:597] + "..."
+    flow_info(
+        "开始 | PubMed 检索（NCBI E-utilities：esearch + efetch）\n"
+        f"  sort={sort}  retmax={retmax}{date_hint}\n"
+        f"  检索式：{preview}"
+    )
+
     handle = Entrez.esearch(**esearch_params)
     try:
         summary = Entrez.read(handle)
@@ -161,6 +174,13 @@ def search_pubmed(
                 articles.append(medline_record_to_article(rec))
         finally:
             fhandle.close()
+
+    flow_info(
+        "完成 | PubMed 检索\n"
+        f"  数据库命中总数（Count）：{total}\n"
+        f"  本批检索式返回 PMID 数：{len(id_list)}\n"
+        f"  已拉取 Medline 详情条数：{len(articles)}"
+    )
 
     return SearchResult(
         query=term,

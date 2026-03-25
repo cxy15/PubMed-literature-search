@@ -30,18 +30,40 @@ def chat_completion(
     system_prompt: str,
     user_prompt: str,
     temperature: float = 0.4,
+    *,
+    flow_stage: str | None = None,
 ) -> str:
+    if flow_stage:
+        from pubmed_reporter.flow_log import flow_info
+
+        flow_info(f"开始 | {flow_stage}")
+
     client = get_client(settings)
-    resp = client.chat.completions.create(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=temperature,
-    )
+    try:
+        resp = client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=temperature,
+        )
+    except Exception:
+        if flow_stage:
+            from pubmed_reporter.flow_log import flow_info
+
+            flow_info(f"失败 | {flow_stage}")
+        raise
+
     choice = resp.choices[0]
     content = choice.message.content
     if not content:
-        return ""
-    return content.strip()
+        out = ""
+    else:
+        out = content.strip()
+
+    if flow_stage:
+        from pubmed_reporter.flow_log import flow_info
+
+        flow_info(f"完成 | {flow_stage}")
+    return out
