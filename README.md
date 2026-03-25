@@ -28,8 +28,6 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
 ### 2. 安装依赖
 
-使用 pip：
-
 ```bash
 pip install uv
 uv pip install -r requirements.txt
@@ -37,16 +35,13 @@ uv pip install -r requirements.txt
 
 ### 3.运行
 
-使用脚本运行
+使用脚本运行，该脚本会引导完成整个程序流程
 
 ```bash
-chmod +x run.sh
 ./run.sh
 ```
 
 在第一次运行时，需要配置环境变量
-
-**必填**
 
 | 变量 | 说明 |
 |------|------|
@@ -57,8 +52,7 @@ chmod +x run.sh
 | `OPENAI_MODEL` | 模型名，由服务商定义 |
 | `CHINESE_FONT_PATH` | 中文字体 `.ttf` / `.ttc` 路径；不填则尝试常见系统路径 |
 
-
-使用命令行运行
+或者可以使用命令行运行
 
 ```bash
 python -m pubmed_reporter --help
@@ -75,11 +69,11 @@ python -m pubmed_reporter -n 60 -o author.pdf author "Smith JA"
 
 日志默认写入 `logs/run_*.log`。
 
-## 项目结构（概要）
+## 项目结构
 
 ```
 文献检索/
-├── main.py                 # 入口转发
+├── main.py                 
 ├── run.sh                  # 交互启动脚本
 ├── requirements.txt
 ├── .env.example
