@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -29,7 +28,6 @@ class Settings:
     openai_api_key: str
     openai_base_url: str | None
     openai_model: str
-    chinese_font_path: Path | None
 
 
 def load_settings() -> Settings:
@@ -42,8 +40,6 @@ def load_settings() -> Settings:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     base = os.getenv("OPENAI_BASE_URL", "").strip() or None
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
-    font_raw = os.getenv("CHINESE_FONT_PATH", "").strip()
-    font_path = Path(font_raw).expanduser() if font_raw else None
 
     return Settings(
         entrez_email=email,
@@ -51,5 +47,4 @@ def load_settings() -> Settings:
         openai_api_key=api_key,
         openai_base_url=base,
         openai_model=model,
-        chinese_font_path=font_path if font_path and font_path.is_file() else None,
     )

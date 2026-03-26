@@ -15,7 +15,7 @@ from pubmed_reporter import modes
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="基于 PubMed（NCBI E-utilities）与 OpenAI 兼容 Chat Completions 的文献检索与中文 PDF 报告。",
+        description="基于 PubMed（NCBI E-utilities）与 OpenAI 兼容 Chat Completions 的文献检索与中文文本报告。",
         epilog=(
             "环境变量：ENTREZ_EMAIL（NCBI 要求的联系邮箱）；可选 NCBI_API_KEY（eutils 的 api_key= 参数）。"
             "LLM：OPENAI_API_KEY + OPENAI_BASE_URL（一般为 …/v1）指向任意兼容服务，无需使用 ChatGPT。"
@@ -26,8 +26,8 @@ def main() -> int:
         "-o",
         "--output",
         type=Path,
-        default=Path("report.pdf"),
-        help="输出 PDF 路径（默认 report.pdf）",
+        default=Path("report.txt"),
+        help="输出 UTF-8 文本报告路径（默认 report.txt；若写为 .pdf 会自动改为同名 .txt）",
     )
     parser.add_argument(
         "-n",
@@ -104,10 +104,8 @@ def main() -> int:
         print("错误：请在环境变量 OPENAI_API_KEY 中设置 API 密钥。", file=sys.stderr)
         return 1
 
-    modes.warn_if_no_cjk_font(settings)
-
     flow_info(
-        f"CLI 子命令: {args.command}  retmax={args.retmax}  输出 PDF: {args.output}"
+        f"CLI 子命令: {args.command}  retmax={args.retmax}  输出报告: {args.output}"
     )
 
     try:
@@ -118,7 +116,7 @@ def main() -> int:
                 query=args.raw_query,
                 authoritative_journals=args.authoritative,
                 retmax=args.retmax,
-                output_pdf=args.output,
+                output_path=args.output,
             )
         elif args.command == "trend":
             path = modes.run_trend(
@@ -127,7 +125,7 @@ def main() -> int:
                 raw_query=args.raw_query,
                 years=args.years,
                 retmax=args.retmax,
-                output_pdf=args.output,
+                output_path=args.output,
             )
         elif args.command == "author":
             path = modes.run_author(
@@ -135,7 +133,7 @@ def main() -> int:
                 args.name,
                 raw_query=args.raw_query,
                 retmax=args.retmax,
-                output_pdf=args.output,
+                output_path=args.output,
             )
         else:
             return 1

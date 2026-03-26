@@ -141,15 +141,6 @@ if [[ -z "${OPENAI_MODEL:-}" ]]; then
   fi
 fi
 
-if [[ -z "${CHINESE_FONT_PATH:-}" ]]; then
-  read -r -p "中文字体路径 CHINESE_FONT_PATH（可选，回车跳过）: " _font
-  if [[ -n "${_font// /}" ]]; then
-    CHINESE_FONT_PATH="$_font"
-    write_env_kv CHINESE_FONT_PATH "$CHINESE_FONT_PATH"
-    export CHINESE_FONT_PATH
-  fi
-fi
-
 log "配置就绪。"
 
 # --- 模式选择 ---
@@ -176,11 +167,11 @@ RETMAX_DEFAULT="80"
 read -r -p "单次检索最大文献条数 retmax [默认 ${RETMAX_DEFAULT}]: " _retmax
 RETMAX="${_retmax:-$RETMAX_DEFAULT}"
 
-OUT_DEFAULT="report_$(date '+%Y%m%d_%H%M%S').pdf"
-read -r -p "输出 PDF 路径 [默认 ${OUT_DEFAULT}]: " _out
-OUTPUT_PDF="${_out:-$OUT_DEFAULT}"
+OUT_DEFAULT="report_$(date '+%Y%m%d_%H%M%S').txt"
+read -r -p "输出文本报告路径 [默认 ${OUT_DEFAULT}]: " _out
+OUTPUT_REPORT="${_out:-$OUT_DEFAULT}"
 
-ARGS=("-n" "$RETMAX" "-o" "$OUTPUT_PDF")
+ARGS=("-n" "$RETMAX" "-o" "$OUTPUT_REPORT")
 
 case "$CMD_MODE" in
   review)
@@ -188,12 +179,12 @@ case "$CMD_MODE" in
     echo "综述模式："
     echo "  - 支持使用自然语言检索，或者输入标准PubMed检索表达式。"
     echo "  - 若在此栏填写「手工检索式」，则跳过翻译，直接使用（等价命令行 -q）。"
-    read -r -p "检索意图自然语言（必填）: " KEYWORD
+    read -r -p "检索意图（必填）: " KEYWORD
     if [[ -z "${KEYWORD// /}" ]]; then
       echo "错误：检索意图不能为空。" >&2
       exit 1
     fi
-    read -r -p "手工 PubMed 检索式（可选，回车则由 LLM 根据上一行生成）: " PUB_QUERY
+    read -r -p "手工 PubMed 检索式（可选，直接回车则由 LLM 根据上一行生成: " PUB_QUERY
     read -r -p "是否限定权威生物医学期刊? [y/N]: " AUTH
     ARGS+=(review "$KEYWORD")
     if [[ -n "${PUB_QUERY// /}" ]]; then
@@ -202,43 +193,43 @@ case "$CMD_MODE" in
     if [[ "$AUTH" =~ ^[yY]$ ]]; then
       ARGS+=("-a")
     fi
-    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch\n  D) LLM：生成中文文献报告（综述）\n  E) 写入 PDF'
+    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch\n  D) LLM：生成中文文献报告（综述）\n  E) 写入 UTF-8 文本报告'
     ;;
   trend)
     echo ""
     echo "研究趋势："
     echo "  - 支持使用自然语言检索，或者输入标准PubMed检索表达式。"
     echo "  - 若在此栏填写「手工检索式」，则跳过翻译，直接使用（等价命令行 -q）。"
-    read -r -p "检索意图自然语言（必填）: " KEYWORD
+    read -r -p "检索意图（必填）: " KEYWORD
     if [[ -z "${KEYWORD// /}" ]]; then
       echo "错误：检索意图不能为空。" >&2
       exit 1
     fi
-    read -r -p "手工 PubMed 检索式（可选，回车则由 LLM 生成）: " RAW_Q
+    read -r -p "手工 PubMed 检索式（可选，直接回车则由 LLM 根据上一行生成: " RAW_Q
     read -r -p "回溯年数 [默认 5]: " _y
     YEARS="${_y:-5}"
     ARGS+=(trend "$KEYWORD" "-y" "$YEARS")
     if [[ -n "${RAW_Q// /}" ]]; then
       ARGS+=("-q" "$RAW_Q")
     fi
-    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch（含日期范围）\n  D) LLM：生成中文文献报告（研究趋势）\n  E) 写入 PDF'
+    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch（含日期范围）\n  D) LLM：生成中文文献报告（研究趋势）\n  E) 写入 UTF-8 文本报告'
     ;;
   author)
     echo ""
     echo "作者分析："
     echo "  - 支持使用自然语言检索，或者输入标准PubMed检索表达式。"
     echo "  - 若在此栏填写「手工检索式」，则跳过翻译，直接使用（等价命令行 -q）。"
-    read -r -p "作者或检索意图自然语言（必填）: " AUTH_NAME
+    read -r -p "检索意图（必填）: " AUTH_NAME
     if [[ -z "${AUTH_NAME// /}" ]]; then
       echo "错误：输入不能为空。" >&2
       exit 1
     fi
-    read -r -p "手工 PubMed 检索式（可选，回车则由 LLM 生成）: " RAW_Q
+    read -r -p "手工 PubMed 检索式（可选，直接回车则由 LLM 根据上一行生成）: " RAW_Q
     ARGS+=(author "$AUTH_NAME")
     if [[ -n "${RAW_Q// /}" ]]; then
       ARGS+=("-q" "$RAW_Q")
     fi
-    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch\n  D) LLM：生成中文文献报告（作者画像）\n  E) 写入 PDF'
+    PIPELINE_HINT=$'  A) （若未选手工检索式）LLM：自然语言 → PubMed 检索式\n  B) 打印「实际用于检索的 PubMed 表达式（完整）」\n  C) NCBI：esearch + efetch\n  D) LLM：生成中文文献报告（作者画像）\n  E) 写入 UTF-8 文本报告'
     ;;
 esac
 

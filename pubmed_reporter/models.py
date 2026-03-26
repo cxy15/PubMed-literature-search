@@ -43,3 +43,13 @@ class SearchResult:
     total_count: int
     retrieved_ids: list[str]
     articles: list[PubMedArticle] = field(default_factory=list)
+
+
+@dataclass
+class ArticleRelevance:
+    """单篇文献相对「当前 PubMed 检索式」的相关性分级（供加权分析）。"""
+
+    pmid: str
+    level: str  # 高 / 中 / 低
+    weight: float  # 0.0–1.0，与 level 一致，由程序映射
+    rationale: str

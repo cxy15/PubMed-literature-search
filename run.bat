@@ -74,9 +74,6 @@ if "!OPENAI_MODEL!"=="" (
   "%VENV_PY%" "%SCRIPT_DIR%scripts\env_write.py" OPENAI_MODEL "!OPENAI_MODEL!"
 )
 
-set /p "CHINESE_FONT_PATH=中文字体路径 CHINESE_FONT_PATH（可选，回车跳过）: "
-if not "!CHINESE_FONT_PATH!"=="" "%VENV_PY%" "%SCRIPT_DIR%scripts\env_write.py" CHINESE_FONT_PATH "!CHINESE_FONT_PATH!"
-
 echo [日志] 配置就绪。
 
 call :section "选择运行模式"
@@ -99,9 +96,9 @@ set /p "RETMAX=单次检索最大文献条数 retmax [默认 !RETMAX_DEFAULT!]: 
 if "!RETMAX!"=="" set "RETMAX=!RETMAX_DEFAULT!"
 
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "TS=%%i"
-set "OUT_DEFAULT=report_!TS!.pdf"
-set /p "OUTPUT_PDF=输出 PDF 路径 [默认 !OUT_DEFAULT!]: "
-if "!OUTPUT_PDF!"=="" set "OUTPUT_PDF=!OUT_DEFAULT!"
+set "OUT_DEFAULT=report_!TS!.txt"
+set /p "OUTPUT_REPORT=输出文本报告路径 [默认 !OUT_DEFAULT!]: "
+if "!OUTPUT_REPORT!"=="" set "OUTPUT_REPORT=!OUT_DEFAULT!"
 
 if not exist "%SCRIPT_DIR%logs" mkdir "%SCRIPT_DIR%logs"
 set "LOG_FILE=%SCRIPT_DIR%logs\run_!TS!.log"
@@ -121,7 +118,7 @@ if "!KEYWORD!"=="" (
 )
 set /p "PUB_QUERY=手工 PubMed 检索式（可选，回车则由 LLM 生成）: "
 set /p "AUTH=是否限定权威生物医学期刊? [y/N]: "
-set "PIPELINE_HINT=A) LLM 检索式  B) 最终表达式  C) NCBI  D) LLM 报告  E) PDF"
+set "PIPELINE_HINT=A) LLM 检索式  B) 最终表达式  C) NCBI  D) LLM 报告  E) 文本"
 call :section "即将执行的流水线"
 echo !PIPELINE_HINT!
 call :section "启动 Python"
@@ -129,15 +126,15 @@ echo [日志] 日志文件: !LOG_FILE!
 echo ----------
 if not "!PUB_QUERY!"=="" (
   if /i "!AUTH!"=="y" (
-    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" review "!KEYWORD!" -q "!PUB_QUERY!" -a
+    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" review "!KEYWORD!" -q "!PUB_QUERY!" -a
   ) else (
-    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" review "!KEYWORD!" -q "!PUB_QUERY!"
+    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" review "!KEYWORD!" -q "!PUB_QUERY!"
   )
 ) else (
   if /i "!AUTH!"=="y" (
-    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" review "!KEYWORD!" -a
+    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" review "!KEYWORD!" -a
   ) else (
-    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" review "!KEYWORD!"
+    "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" review "!KEYWORD!"
   )
 )
 set EXIT_CODE=!ERRORLEVEL!
@@ -154,16 +151,16 @@ if "!KEYWORD!"=="" (
 set /p "RAW_Q=手工 PubMed 检索式（可选）: "
 set /p "YEARS=回溯年数 [默认 5]: "
 if "!YEARS!"=="" set "YEARS=5"
-set "PIPELINE_HINT=A) LLM 检索式  B) 最终表达式  C) NCBI+日期  D) LLM 报告  E) PDF"
+set "PIPELINE_HINT=A) LLM 检索式  B) 最终表达式  C) NCBI+日期  D) LLM 报告  E) 文本"
 call :section "即将执行的流水线"
 echo !PIPELINE_HINT!
 call :section "启动 Python"
 echo [日志] 日志文件: !LOG_FILE!
 echo ----------
 if "!RAW_Q!"=="" (
-  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" trend "!KEYWORD!" -y !YEARS!
+  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" trend "!KEYWORD!" -y !YEARS!
 ) else (
-  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" trend "!KEYWORD!" -y !YEARS! -q "!RAW_Q!"
+  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" trend "!KEYWORD!" -y !YEARS! -q "!RAW_Q!"
 )
 set EXIT_CODE=!ERRORLEVEL!
 goto :after_run
@@ -177,16 +174,16 @@ if "!AUTH_NAME!"=="" (
   exit /b 1
 )
 set /p "RAW_Q=手工 PubMed 检索式（可选）: "
-set "PIPELINE_HINT=A) LLM 检索式  B) 最终表达式  C) NCBI  D) LLM 报告  E) PDF"
+set "PIPELINE_HINT=A) LLM 检索式  B) 最终表达式  C) NCBI  D) LLM 报告  E) 文本"
 call :section "即将执行的流水线"
 echo !PIPELINE_HINT!
 call :section "启动 Python"
 echo [日志] 日志文件: !LOG_FILE!
 echo ----------
 if "!RAW_Q!"=="" (
-  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" author "!AUTH_NAME!"
+  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" author "!AUTH_NAME!"
 ) else (
-  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_PDF!" author "!AUTH_NAME!" -q "!RAW_Q!"
+  "%VENV_PY%" -u "%SCRIPT_DIR%scripts\tee_run.py" "!LOG_FILE!" -n !RETMAX! -o "!OUTPUT_REPORT!" author "!AUTH_NAME!" -q "!RAW_Q!"
 )
 set EXIT_CODE=!ERRORLEVEL!
 goto :after_run

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -16,8 +15,12 @@ from pubmed_reporter.prompts import (
     build_review_user_prompt,
     build_trend_user_prompt,
 )
-from pubmed_reporter.pdf_report import write_report_pdf
 from pubmed_reporter.query_builder import natural_language_to_pubmed_query
+from pubmed_reporter.text_report import write_report_txt
+from pubmed_reporter.relevance_scoring import (
+    save_relevance_to_logs,
+    score_articles_relevance,
+)
 from pubmed_reporter.retrieval_log import save_retrieved_articles_to_logs
 
 
@@ -33,7 +36,7 @@ def run_review(
     query: str | None,
     authoritative_journals: bool,
     retmax: int,
-    output_pdf: Path,
+    output_path: Path,
 ) -> Path:
     if query:
         term = query.strip()
@@ -58,8 +61,22 @@ def run_review(
     )
     flow_info(f"已保存检索文献快照（LLM 分析前）：{snap.resolve()}")
 
+    relevances = score_articles_relevance(settings, term, result.articles)
+    rel_log = save_relevance_to_logs(
+        term,
+        mode="review",
+        articles=result.articles,
+        relevances=relevances,
+        extra_meta={"user_keyword": keyword},
+    )
+    flow_info(f"已保存相关性分级：{rel_log.resolve()}")
+
     user_prompt = build_review_user_prompt(
-        keyword, term, result.total_count, result.articles
+        keyword,
+        term,
+        result.total_count,
+        result.articles,
+        relevances=relevances if relevances else None,
     )
 
     report = chat_completion(
@@ -70,9 +87,9 @@ def run_review(
         flow_stage="LLM：生成中文文献报告（综述）",
     )
     title = f"「文献综述简报」{keyword}"
-    flow_info("开始 | 写入 PDF 文件")
-    path = write_report_pdf(settings, title, report, output_pdf)
-    flow_info(f"完成 | 写入 PDF 文件：{path.resolve()}")
+    flow_info("开始 | 写入报告文本文件")
+    path = write_report_txt(title, report, output_path)
+    flow_info(f"完成 | 写入报告文本文件：{path.resolve()}")
     return path
 
 
@@ -83,7 +100,7 @@ def run_trend(
     raw_query: str | None,
     years: int,
     retmax: int,
-    output_pdf: Path,
+    output_path: Path,
 ) -> Path:
     now = datetime.now().year
     mindate = str(now - years + 1)
@@ -121,6 +138,20 @@ def run_trend(
     )
     flow_info(f"已保存检索文献快照（LLM 分析前）：{snap.resolve()}")
 
+    relevances = score_articles_relevance(settings, term, result.articles)
+    rel_log = save_relevance_to_logs(
+        term,
+        mode="trend",
+        articles=result.articles,
+        relevances=relevances,
+        extra_meta={
+            "user_keyword": keyword,
+            "years": str(years),
+            "pdat_range": f"{mindate}–{maxdate}",
+        },
+    )
+    flow_info(f"已保存相关性分级：{rel_log.resolve()}")
+
     user_prompt = build_trend_user_prompt(
         keyword,
         years,
@@ -129,6 +160,7 @@ def run_trend(
         term,
         result.total_count,
         result.articles,
+        relevances=relevances if relevances else None,
     )
 
     report = chat_completion(
@@ -139,9 +171,9 @@ def run_trend(
         flow_stage="LLM：生成中文文献报告（研究趋势）",
     )
     title = f"「研究趋势分析」{keyword}（{mindate}–{maxdate}）"
-    flow_info("开始 | 写入 PDF 文件")
-    path = write_report_pdf(settings, title, report, output_pdf)
-    flow_info(f"完成 | 写入 PDF 文件：{path.resolve()}")
+    flow_info("开始 | 写入报告文本文件")
+    path = write_report_txt(title, report, output_path)
+    flow_info(f"完成 | 写入报告文本文件：{path.resolve()}")
     return path
 
 
@@ -151,7 +183,7 @@ def run_author(
     *,
     raw_query: str | None,
     retmax: int,
-    output_pdf: Path,
+    output_path: Path,
 ) -> Path:
     safe = name.strip().replace("[", "").replace("]", "")
     if raw_query:
@@ -172,7 +204,22 @@ def run_author(
     )
     flow_info(f"已保存检索文献快照（LLM 分析前）：{snap.resolve()}")
 
-    user_prompt = build_author_user_prompt(term, result.total_count, result.articles)
+    relevances = score_articles_relevance(settings, term, result.articles)
+    rel_log = save_relevance_to_logs(
+        term,
+        mode="author",
+        articles=result.articles,
+        relevances=relevances,
+        extra_meta={"user_input": safe},
+    )
+    flow_info(f"已保存相关性分级：{rel_log.resolve()}")
+
+    user_prompt = build_author_user_prompt(
+        term,
+        result.total_count,
+        result.articles,
+        relevances=relevances if relevances else None,
+    )
 
     report = chat_completion(
         settings,
@@ -182,18 +229,7 @@ def run_author(
         flow_stage="LLM：生成中文文献报告（作者画像）",
     )
     title = f"「作者研究画像」{safe}"
-    flow_info("开始 | 写入 PDF 文件")
-    path = write_report_pdf(settings, title, report, output_pdf)
-    flow_info(f"完成 | 写入 PDF 文件：{path.resolve()}")
+    flow_info("开始 | 写入报告文本文件")
+    path = write_report_txt(title, report, output_path)
+    flow_info(f"完成 | 写入报告文本文件：{path.resolve()}")
     return path
-
-
-def warn_if_no_cjk_font(settings: Settings) -> None:
-    from pubmed_reporter.font_utils import resolve_chinese_font
-
-    if resolve_chinese_font(settings) is None:
-        print(
-            "警告：未找到可用的中文字体文件，PDF 可能无法正确显示中文。"
-            "请设置环境变量 CHINESE_FONT_PATH 指向 .ttf/.ttc 字体。",
-            file=sys.stderr,
-        )

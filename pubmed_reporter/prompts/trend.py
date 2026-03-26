@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
-from pubmed_reporter.models import PubMedArticle
-from pubmed_reporter.prompts.common import articles_bundle
+from pubmed_reporter.models import ArticleRelevance, PubMedArticle
+from pubmed_reporter.prompts.common import articles_bundle, weighting_task_note
 
 
 def format_trend_timeline(articles: list[PubMedArticle]) -> str:
@@ -45,6 +45,7 @@ def build_trend_user_prompt(
     term: str,
     total_count: int,
     articles: list[PubMedArticle],
+    relevances: list[ArticleRelevance] | None = None,
 ) -> str:
     timeline = format_trend_timeline(articles)
     return f"""任务：研究趋势分析（近 {years} 年）。
@@ -55,8 +56,10 @@ PubMed 检索式：{term}
 检索命中总数：{total_count}
 本次纳入：{len(articles)} 篇（按发表日期排序截断）
 
+{weighting_task_note()}
+
 请结合下列「按年粗略列表」与完整文献摘要，分析：
-1. 该主题近年的总体热度变化（可结合文献数量与主题词）
+1. 该主题近年的总体热度变化（可结合文献数量与主题词；趋势判断优先采信高权重文献）
 2. 不同时段的研究重点迁移（例如从机制到临床等，需有摘要依据）
 3. 新兴方法、生物标志物或争议点（若有证据）
 4. 未来可能的研究方向
@@ -64,6 +67,6 @@ PubMed 检索式：{term}
 按年摘要列表（部分展示）：
 {timeline}
 
-完整文献信息：
-{articles_bundle(articles)}
+完整文献信息（含相对检索式的相关性分级）：
+{articles_bundle(articles, relevances=relevances)}
 """
